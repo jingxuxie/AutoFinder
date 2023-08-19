@@ -1,0 +1,5 @@
+conda activate c:/jingxu/envs/python310
+cd C:/Jingxu/RemoteCamera_v4
+python Sony_view20.py
+
+C:\Jingxu\envs\python310\python.exe C:\Jingxu\RemoteCamera_v4\Sony_view20.py

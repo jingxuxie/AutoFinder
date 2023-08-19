@@ -1,0 +1,5 @@
+setup.py
+autofinder.egg-info/PKG-INFO
+autofinder.egg-info/SOURCES.txt
+autofinder.egg-info/dependency_links.txt
+autofinder.egg-info/top_level.txt
