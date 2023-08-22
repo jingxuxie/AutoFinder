@@ -1,10 +1,15 @@
 #%%
 import numpy as np
+import os
 
 
 #%%
-def predict_mose2(BGRcontr, SiO2_thickness = 90):
-    contrast = - np.load('E:/Desktop2023.1.17/AutoFinder/autofinder/find_layers/mose2_contrast.npy')
+def predict_mose2(BGRcontr, bk_color = None):
+
+    absolute_path = os.path.dirname(__file__)
+    relative_path = 'mose2_contrast.npy'
+    file_path = os.path.join(absolute_path, relative_path)
+    contrast = - np.load(file_path)
     z = -contrast[0]
     err = np.sqrt((contrast[1] - BGRcontr[0])**2 + \
                   (contrast[2] - BGRcontr[1])**2 + \

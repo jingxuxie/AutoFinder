@@ -1,0 +1,3 @@
+conda activate c:/jingxu/envs/python310
+cd C:\Jingxu\AutoFinder\autofinder\cameras
+python vieworks.py

@@ -16,7 +16,7 @@ find_segment_list, careful_look, put_Text, get_real_bk_color
 
 
 #%%
-def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = [0.2, 2],
+def layer_search_ws2(filename, background, area_thresh = 200, thickness_range_list = [[0.2, 2]],
                      roi = [0, 1, 0, 1]):
     isLayer = False
     contrast_list = []
@@ -35,7 +35,7 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
     bk = bk[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
     median = np.median(bk, axis = (0, 1))
 
-    # filename = 'F:/Temp/ws2_new/0815/color_shift_1/2023-08-15--13-31-45-21B000.png'
+    # filename = 'D:/0_JX_AutoFinder/2023-08/20/39/color_3/2023-08-20--17-16-53-96B000.png'
     img = cv2.imread(filename)
     img = img[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
 
@@ -48,13 +48,15 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
     bk_color = np.zeros(3, dtype = np.int32)
     for i in range(3):
         hist[i] = cv2.calcHist([img[:, :, i]], [0], None, [256], [0,255]).squeeze()
-        hist[i] = hist[i][65: 130]
+        hist[i] = hist[i][50: 130]
         index = np.argmax(hist[i])
         # bk_color[i] = index + 70
         if hist[i][index] < 1e5:
             return False, [], [], []
     index = get_real_bk_color(hist)
-    bk_color = index + 65
+    bk_color = index + 50
+
+    print(bk_color)
 
     # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # hist_y = cv2.calcHist([img_gray], [0], None, [256], [0,255])
@@ -83,9 +85,8 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
     # plt.figure()
     # plt.imshow(img_gray, cmap='gray')
 
-    #%%
     threshold_lo = [int(bk_color[0] * 0.7), int(bk_color[1] * 0.5), int(bk_color[2] * 0.2)]
-    threshold_hi = [int(bk_color[0] * 0.98), int(bk_color[1] * 0.95), int(bk_color[2] * 0.7)]
+    threshold_hi = [int(bk_color[0] * 1.1), int(bk_color[1] * 0.98), int(bk_color[2] * 0.7)]
 
     img_binary = cv2.inRange(img, np.array(threshold_lo), np.array(threshold_hi))
 
@@ -95,7 +96,6 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
     kernel_close = np.ones((7,7),np.uint8)
     img_close = cv2.morphologyEx(img_open, cv2.MORPH_CLOSE, kernel_close)
 
-    #%%
     contours, _ = cv2.findContours(img_close, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
     cnt_large_ensemble = []
@@ -109,7 +109,6 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
     # plt.figure()
     # plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-    #%%
     for cnt_large in cnt_large_ensemble:
         mask = np.zeros(img.shape[:2], np.uint8)
         cv2.drawContours(mask, [cnt_large], -1, 255, -1)
@@ -131,7 +130,7 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
         segments = find_segment_list(temp, area_thresh, variance_limit=np.array([5, 5, 7]))
         ret, contrast_list_local, thickness_list = careful_look(img_cnt_large_cut, segments, 
                                                                 local_bk_color, predictor, area_thresh,
-                                                                thickness_range)
+                                                                thickness_range_list)
         
         if ret:
             isLayer = True
@@ -144,9 +143,9 @@ def layer_search_ws2(filename, background, area_thresh = 200, thickness_range = 
 
 #%%
 def test_run(background):
-    filepath = 'F:/Temp/ws2_new/0815/color_shift_2'
+    filepath = 'D:/0_JX_AutoFinder/2023-08/20/39/color_5'
     _, file_list, _ = generate_positions(filepath)
-    resultpath = 'F:/Temp/ws2_new/0815/results_2'
+    resultpath = 'D:/0_JX_AutoFinder/2023-08/20/39/results_new5'
     contrast_json = {'items': []}
     if not os.path.isdir(resultpath):
         os.makedirs(resultpath)
@@ -172,7 +171,9 @@ def test_run(background):
 
 #%%
 if __name__ == '__main__':
-    bk = get_background('F:/Temp/ws2_new/0815/color_shift_2', 1500, 1500)
+    bk = get_background('D:/0_JX_AutoFinder/2023-08/20/38/color_0', 1500, 1500)
+    if (np.var(bk[700:800, 700:800], axis = (0, 1)) > np.array([2, 2, 2])).any():
+        bk = cv2.medianBlur(bk.astype(np.uint8), 201)
     bk = cv2.resize(bk, (3000, 3000))
     # bk = cv2.imread('F:/Temp/wse2_new/0812/color_shift_3/bk.png')
     test_run(bk)

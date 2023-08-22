@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import re
 import os
+from autofinder.find_layers.predict_sio2 import predict_sio2
 #%%
 def predict_gr(BGRcontr):
     folder = os.path.dirname(__file__.replace('\\', '/'))
@@ -42,12 +43,20 @@ def predict_gr(BGRcontr):
     return True, predz, err
 
 
-def predict_gr(BGRcontr, SiO2_thickness = 95):
-    contrast = - np.load('E:/Desktop2023.1.17/AutoFinder/autofinder/find_layers/gr_contrast.npy')
-    z = contrast[0]
-    err = np.sqrt((contrast[1] - BGRcontr[0])**2 + \
-                  (contrast[2] - BGRcontr[1])**2 + \
-                  (contrast[3] - BGRcontr[2])**2)
+def predict_gr(BGRcontr, bk_color):
+
+    ret, _, index = predict_sio2(bk_color)
+    
+    absolute_path = os.path.dirname(__file__)
+    relative_path = 'gr_contrast.npy'
+    file_path = os.path.join(absolute_path, relative_path)
+    contrast = - np.load(file_path)
+    contrast = contrast[:, :, index]
+
+    z = np.linspace(0, 15, 1501)
+    err = np.sqrt((contrast[:, 0] - BGRcontr[0])**2 + \
+                  (contrast[:, 1] - BGRcontr[1])**2 + \
+                  (contrast[:, 2] - BGRcontr[2])**2)
 
     predz = z[np.argmin(err)]
     

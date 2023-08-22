@@ -12,7 +12,7 @@ def mono8_to_ndarray(rgb, w, h):
     c = 1
     return np.frombuffer(data, count=rgb.get_buffer_size(), dtype=np.uint8).reshape((h,w))
 #%%
-class VieworksCamera():
+class VieworksCamera:
     def __init__(self, ROI = [0, 5120, 0, 5120]):
         self.initial_img_error = False
         self.initial_last_frame()

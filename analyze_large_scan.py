@@ -3,60 +3,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, Point
-from autofinder.auxiliary_func import background_divide, generate_positions
-
-#%%
-def combine(folder, crop_w = [0, 1], crop_h = [0, 1], scale_x = 0.2, scale_y = 0.2, 
-            compress = 1, bk = []):
-    _, file_list, position_list = generate_positions(folder)
-
-    # position_list[:, 1] = -position_list[:, 1]
-
-    x_limit = [np.min(position_list[:, 0]), np.max(position_list[:, 0])]
-    y_limit = [np.min(position_list[:, 1]), np.max(position_list[:, 1])]
-
-    position_list[:, 0] -= x_limit[0]
-    position_list[:, 1] -= y_limit[0]
-
-    # position_list, file_list = normalize_position(position_list, file_list)
-
-    x_range = x_limit[1] - x_limit[0]
-    y_range = y_limit[1] - y_limit[0]
-
-    img = cv2.imread(folder + '/' + file_list[0])
-    width = int(img.shape[1] / compress)
-    height = int(img.shape[0] / compress)
-
-    out = np.zeros((int(y_range * scale_y + height + 100), 
-                    int(x_range * scale_x + width + 100), 
-                    3), dtype = np.uint8)
-
-    roi_w = [int(width * crop_w[0]), int(width * crop_w[1])]
-    roi_h = [int(height * crop_h[0]), int(height * crop_h[1])]
-
-    roi_width = roi_w[1] - roi_w[0]
-    roi_height = roi_h[1] - roi_h[0]
-
-    if len(bk) > 1:
-        bk = cv2.resize(bk, (width, height))
-        bk = bk[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
-        median = np.median(bk, axis = (0, 1))
-
-    for i in range(len(file_list)):
-        img = cv2.imread(folder + '/' + file_list[i])
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (width, height))
-        img = img[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
-        if len(bk) > 1:
-            img = background_divide(img, bk, median)
-        pos = position_list[i]
-        start_x = int(pos[0] *scale_x)
-        start_y = int(pos[1] *scale_y) + 1
-        out[start_y: start_y + roi_height, start_x: start_x + roi_width] = img
-    
-    cv2.imwrite(folder + '/combine.jpg', out)
-    return out
-    
+from autofinder.auxiliary_func import background_divide, generate_positions, combine
 
 
 #%%

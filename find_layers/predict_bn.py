@@ -5,8 +5,10 @@ import re
 import os
 import scipy
 from scipy.interpolate import interp1d
+from autofinder.find_layers.predict_sio2 import predict_sio2
 from tmm.tmm_core import coh_tmm
 #%%
+'''
 def predict_bn(BGRcontr):
     folder = os.path.dirname(__file__.replace('\\', '/'))
     data_points = np.load(folder + '/contrast_bn.npy')
@@ -42,14 +44,22 @@ def predict_bn(BGRcontr):
     err = (upperbound - lowerbound) / 2
 
     return True, predz, err
+'''
 
+def predict_bn(BGRcontr, bk_color):
 
-def predict_bn(BGRcontr, SiO2_thickness = 86):
-    contrast = - np.load('E:/Desktop2023.1.17/AutoFinder/autofinder/find_layers/bn_contrast.npy')
-    z = contrast[0]
-    err = np.sqrt((contrast[1] - BGRcontr[0])**2 + \
-                  (contrast[2] - BGRcontr[1])**2 + \
-                  (contrast[3] - BGRcontr[2])**2)
+    ret, _, index = predict_sio2(np.array(bk_color) * 3)
+    
+    absolute_path = os.path.dirname(__file__)
+    relative_path = 'bn_contrast.npy'
+    file_path = os.path.join(absolute_path, relative_path)
+    contrast = - np.load(file_path)
+    contrast = contrast[:, :, index]
+
+    z = np.linspace(0, 500, 5001)
+    err = np.sqrt((contrast[:, 0] - BGRcontr[0])**2 + \
+                  (contrast[:, 1] - BGRcontr[1])**2 + \
+                  (contrast[:, 2] - BGRcontr[2])**2)
 
     predz = z[np.argmin(err)]
     
@@ -62,6 +72,10 @@ def predict_bn(BGRcontr, SiO2_thickness = 86):
     err = (upperbound - lowerbound) / 2
 
     return True, predz, err
+
+
+def predict_thin_bn(BGRcontr, bk_color):
+    return predict_bn(BGRcontr, np.array(bk_color)/3)
 
 
 #%%

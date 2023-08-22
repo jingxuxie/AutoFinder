@@ -11,25 +11,27 @@ class VieworksCameraRGB():
         self.light = light
         self.stop_movie = False
         self.mode = 'mono' # 'rgb' or 'mono'
+        self.rgb_delay = 0.08
+        self.mono_delay = 0.03
  
     def initialize(self):
         self.camera.initialize()
         self.shape = self.camera.last_frame.shape
 
-    def get_frame(self, delay = 0.08):
+    def get_frame(self):
         if self.mode == 'mono':
             self.last_frame = self.camera.last_frame
-            time.sleep(0.03)
+            time.sleep(self.mono_delay)
         elif self.mode == 'rgb':
             last_frame = np.zeros(list(self.shape) + [3], dtype = np.uint8)
             self.light.only_G()
-            time.sleep(delay)
+            time.sleep(self.rgb_delay)
             last_frame[:, :, 1] = self.camera.last_frame
             self.light.only_R()
-            time.sleep(delay)
+            time.sleep(self.rgb_delay)
             last_frame[:, :, 2] = self.camera.last_frame
             self.light.only_B()
-            time.sleep(delay)
+            time.sleep(self.rgb_delay)
             last_frame[:, :, 0] = self.camera.last_frame
 
             self.last_frame = last_frame
@@ -40,6 +42,9 @@ class VieworksCameraRGB():
     
     def set_exposure_time(self, exposure_time:int):
         self.camera.set_exposure_time(exposure_time)
+
+    def set_rgb_delay(self, delay:float):
+        self.rgb_delay = delay
 
     def acquire_movie(self):
         while True:

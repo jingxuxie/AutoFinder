@@ -21,19 +21,18 @@ class Stage_MCX_Rpi():
     
     def move_xyz(self, x = 0, y = 0, z = 0, vx = 1, vy = 1, vz = 1):
         if not (x == 0 and y == 0):
-            self.stage_mcx.move_xy(x, y, vx, vy)
+            self.stage_mcx.move_xy(x, y, vx = vx, vy = vy)
             if z != 0:
-                self.stage_rpi.move_xyz(z, vz)
+                self.stage_rpi.move_xyz(z = z, vz = vz)
             self.stage_mcx.wait_stage()
         
         else:
             if z != 0:
-                self.stage_rpi.move_xyz(z, vz)
+                self.stage_rpi.move_xyz(z = z, vz = vz)
 
 
     def home(self):
         self.stage_mcx.home()
-        self.stage_mcx.wait_stage()
 
     def enable_joystick(self):
         self.stage_mcx.enable_joystick()
@@ -51,3 +50,4 @@ class Stage_MCX_Rpi():
 if __name__ == '__main__':
     stage_mcx_rpi = Stage_MCX_Rpi()
     stage_mcx_rpi.initialize()
+# %%

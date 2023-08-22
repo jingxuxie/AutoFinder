@@ -15,7 +15,7 @@ class Stage_Rpi():
         port = 8000
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.settimeout(2)
+        self.s.settimeout(5)
         try:
             self.s.connect((host, port))
             reply = self.s.recv(1024)

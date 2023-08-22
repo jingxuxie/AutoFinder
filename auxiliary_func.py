@@ -13,6 +13,7 @@ from PyQt5.QtGui import QImage
 import json
 import cv2
 from shutil import copyfile, copy2
+from autofinder.combine_RGB import combine_rgb
 
 #%%
 @jit(nopython = True)
@@ -216,8 +217,15 @@ def generate_grid_points(x_step = 2000, y_step = 2000, x_num = 10, y_num = 10):
 
 #%%
 def generate_revisit_list(input_folder, output_folder, x_margin = 1728, y_margin = 1000,
-                          x_shift = -1500, y_shift = -1500, scale = 0.4195, img_height = 2160,
-                          FOV = 200):
+                          x_shift = -1500, y_shift = -1500, z_correction = -2876, 
+                          scale = 0.4195, FOV = 200, revisit_magnification = '50x'):
+    if revisit_magnification == '50x':
+        FOV = 110
+        z_correction = -2876
+    elif revisit_magnification == '20x':
+        FOV = 260
+        z_correction = -2498
+
     file_pos_dict, _, _ = generate_positions(input_folder)
     with open(output_folder + '/flakes_info.json') as json_file:
         data = json.load(json_file)
@@ -229,8 +237,8 @@ def generate_revisit_list(input_folder, output_folder, x_margin = 1728, y_margin
         filename = item['filename']
         parent_pos = file_pos_dict[filename]
         for pos in item['flake_position_list']:
-            correction = np.array([x_shift, y_shift])
-            relative_pos = scale * (np.array([pos[0] + pos[2]/2, pos[1] + pos[3]/2]) + correction)
+            correction = np.array([x_shift, y_shift, z_correction/scale])
+            relative_pos = scale * (np.array([pos[0] + pos[2]/2, pos[1] + pos[3]/2, 0]) + correction)
             pos = parent_pos + relative_pos
             ret = check_within_FOV(positions, pos, radius = FOV)
             if not ret:
@@ -254,19 +262,21 @@ def check_within_FOV(existing_list, new_pos, radius):
 
 
 #%%
-def merge_thumbnail(folder, filename, img, scale = 0.25):
+def merge_thumbnail(folder, filename, img, scale = 0.585, new_folder = None):
     file_pos_dict, _, position_list = generate_positions(folder)
+    if new_folder != None:
+        file_pos_dict, _, _ = generate_positions(new_folder)
     thumbnail = cv2.imread(folder + '/combine.jpg')
     x_limit = np.min(position_list[:, 0])
     y_limit = np.min(position_list[:, 1])
-    pos = file_pos_dict[filename] - np.array([x_limit, y_limit])
-    pos += np.array([500, 500])
+    pos = file_pos_dict[filename][:2] - np.array([x_limit, y_limit])
+    pos += np.array([625, 625])
 
-    ratio = min(1500 / thumbnail.shape[0], 1500 / thumbnail.shape[1])
+    ratio = min(2500 / thumbnail.shape[0], 2000 / thumbnail.shape[1])
     thumbnail_size = np.int32(np.array(thumbnail.shape[:2]) * ratio)
     thumbnail = cv2.resize(thumbnail, np.flip(thumbnail_size))
     
-    pos = np.int32([pos[0] *scale * ratio, thumbnail_size[0] - pos[1] * scale *ratio])
+    pos = np.int32([pos[0] * scale * ratio, pos[1] * scale * ratio])
     
     cv2.circle(thumbnail, pos, int(1000*scale*ratio), (0, 0, 255), 3)
     out = np.zeros((img.shape[0], img.shape[1] + thumbnail_size[1], 3), dtype = np.uint8)
@@ -306,14 +316,26 @@ def generate_positions(folder):
         char = line.split()
         filename = char[0]
         
-        pos = np.array([float(char[1]), float(char[2])])
+        pos = np.array([float(char[1]), float(char[2]), float(char[3])])
         file_pos_dict[filename] = pos
         file_list.append(filename)
-        position_list.append(pos)
+        position_list.append(pos[:2])
 
     position_list = np.array(position_list)
     
     return file_pos_dict, file_list, position_list
+
+#%%
+def analyze_revisit(origin_folder, input_folder, output_folder, magnification:int):
+    combine_rgb(input_folder, output_folder)
+    _, file_list, _ = generate_positions(output_folder)
+    for file in file_list:
+        filename = output_folder + '/' + file
+        img = cv2.imread(filename)
+        img = draw_scale(img, magnification, img.shape[1], img.shape[0], calibration = 0.43945)
+        img = merge_thumbnail(origin_folder, file, img, scale = 0.585, new_folder = output_folder)
+        cv2.imwrite(filename[:-3] + 'jpg', img)
+        os.remove(filename) if filename[-3:] !='jpg' else None
 
 
 #%%
@@ -380,7 +402,7 @@ def add_signature(folder):
         x_shift = int(275 * fontscale)
         y_shift = int(20 * fontscale)
         cv2.putText(img, 'Designed by Jingxu', (img.shape[1] - x_shift, img.shape[0] - y_shift), cv2.FONT_HERSHEY_SCRIPT_COMPLEX, 
-                color = (150, 150, 150), fontScale = fontscale, thickness = thickness)
+                color = (100, 100, 100), fontScale = fontscale, thickness = thickness)
         cv2.imwrite(filename, img)
 
 #%%
@@ -398,9 +420,9 @@ def merge_folder(input_folder, output_folder):
                 count += 1
             else:
                 count = 1
-        old_filename = input_folder + '/' + old_file_list[i]
+        old_filename = input_folder + '/' + old_file_list[i][:-3] + 'jpg'
         new_filename = output_folder + '/' + file_conterpart[i][:-(4+len(str(count)))] + \
-                       str(count) + file_conterpart[i][-4:]
+                       str(count) + '.jpg'
         copyfile(old_filename, new_filename)
 
 def copy_image(input_folder, output_folder):
@@ -409,6 +431,126 @@ def copy_image(input_folder, output_folder):
         if file[-3:] in ['jpg', 'png']:
             filename = input_folder + '/' + file
             copy2(filename, output_folder)
+
+
+def process_scan_only(raw_folder, color_folder, output_folder, contour_index):
+    combine_rgb(raw_folder, color_folder)
+    scale, bk = pre_process(color_folder)
+    median = np.median(bk, axis = (0, 1))
+    input_folder = color_folder
+    _, file_list, _ = generate_positions(input_folder)
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder)
+    for i in range(len(file_list)):
+        filename = file_list[i]
+        input_name = input_folder + '/' + filename
+        result_name = output_folder + '/' + filename[:-3] + 'jpg'
+        img = cv2.imread(input_name)
+        img = background_divide(img, bk, median)
+        out = merge_thumbnail(input_folder, filename, img, scale = scale)
+        cv2.imwrite(result_name, out)
+    locate_in_large(input_folder, output_folder, contour_index)
+
+
+def pre_process(input_folder, combine_reso = 'normal'):
+    bk = get_background(input_folder, width = 1500, height = 1500)
+    if (np.var(bk[700:800, 700:800], axis = (0, 1)) > np.array([2, 2, 2])).any():
+        bk = cv2.imread('C:/Jingxu/AutoFinder/bk.png')
+    else:
+        bk = cv2.resize(bk, (3000, 3000))
+        cv2.imwrite('C:/Jingxu/AutoFinder/bk.png', bk)
+    
+    scale, compress = get_scale_compress(combine_reso)
+    combine(input_folder, scale_x = scale, scale_y = scale, compress = compress, bk = bk)
+    return scale, bk
+    
+
+
+def get_scale_compress(combine_reso = 'normal'):
+    if combine_reso == 'low':
+        scale = 0.585/2
+        compress = 8
+    elif combine_reso == 'normal':
+        scale = 0.585
+        compress = 4
+    elif combine_reso == 'hi':
+        scale = 0.585*2
+        compress = 2
+    return scale, compress
+
+
+#%%
+def combine(folder, crop_w = [0, 1], crop_h = [0, 1], scale_x = 0.2, scale_y = 0.2, 
+            compress = 1, bk = []):
+    _, file_list, position_list = generate_positions(folder)
+
+    # position_list[:, 1] = -position_list[:, 1]
+
+    x_limit = [np.min(position_list[:, 0]), np.max(position_list[:, 0])]
+    y_limit = [np.min(position_list[:, 1]), np.max(position_list[:, 1])]
+
+    position_list[:, 0] -= x_limit[0]
+    position_list[:, 1] -= y_limit[0]
+
+    # position_list, file_list = normalize_position(position_list, file_list)
+
+    x_range = x_limit[1] - x_limit[0]
+    y_range = y_limit[1] - y_limit[0]
+
+    img = cv2.imread(folder + '/' + file_list[0])
+    width = int(img.shape[1] / compress)
+    height = int(img.shape[0] / compress)
+
+    out = np.zeros((int(y_range * scale_y + height + 100), 
+                    int(x_range * scale_x + width + 100), 
+                    3), dtype = np.uint8)
+
+    roi_w = [int(width * crop_w[0]), int(width * crop_w[1])]
+    roi_h = [int(height * crop_h[0]), int(height * crop_h[1])]
+
+    roi_width = roi_w[1] - roi_w[0]
+    roi_height = roi_h[1] - roi_h[0]
+
+    if len(bk) > 1:
+        bk = cv2.resize(bk, (width, height))
+        bk = bk[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
+        median = np.median(bk, axis = (0, 1))
+
+    for i in range(len(file_list)):
+        img = cv2.imread(folder + '/' + file_list[i])
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.resize(img, (width, height))
+        img = img[roi_h[0]: roi_h[1], roi_w[0]: roi_w[1]]
+        if len(bk) > 1:
+            img = background_divide(img, bk, median)
+        pos = position_list[i]
+        start_x = int(pos[0] *scale_x)
+        start_y = int(pos[1] *scale_y) + 1
+        out[start_y: start_y + roi_height, start_x: start_x + roi_width] = img
+    
+    cv2.imwrite(folder + '/combine.jpg', out)
+    return out
+
+
+#%%
+def locate_in_large(input_folder, output_folder, contour_index):
+    img_large = cv2.imread(os.path.dirname(input_folder) + '/large/combine.jpg')
+    cnt = find_contours(img_large, contour_index)
+    x, y, w, h = cv2.boundingRect(cnt)
+    cv2.rectangle(img_large, (x, y), (x+w, y+h), (0, 0, 255), 30)
+    cv2.imwrite(output_folder + '/large.jpg', img_large)
+
+def find_contours(img, contour_index, bright_thresh = 10, area_thresh = 1e5):
+    imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(imgray, bright_thresh, 255, 0)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnt_list = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > area_thresh:
+            cnt_list.append(cnt)
+            # print(area)
+    return cnt_list[contour_index]
 
 #%%
 def draw_scale(img, magnification, width, height, calibration = 0.9910185):

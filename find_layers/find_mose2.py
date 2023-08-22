@@ -18,7 +18,7 @@ import scipy
 
 
 #%%
-def layer_search_mose2(filename, background, area_thresh = 200, thickness_range = [0.3, 2.3],
+def layer_search_mose2(filename, background, area_thresh = 200, thickness_range_list = [[0.3, 2.3]],
                      roi = [0, 1, 0, 1]):
     isLayer = False
     contrast_list = []
@@ -51,15 +51,15 @@ def layer_search_mose2(filename, background, area_thresh = 200, thickness_range 
     bk_color = np.zeros(3, dtype = np.int32)
     for i in range(3):
         hist[i] = cv2.calcHist([img[:, :, i]], [0], None, [256], [0,255]).squeeze()
-        hist[i] = hist[i][65: 130]
+        hist[i] = hist[i][50: 130]
         index = np.argmax(hist[i])
         # bk_color[i] = index + 70
         if hist[i][index] < 1e5:
             return False, [], [], []
     index = get_real_bk_color(hist)
-    bk_color = index + 65
+    bk_color = index + 50
 
-    print(bk_color)
+    # print(bk_color)
     
 
     # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -90,7 +90,7 @@ def layer_search_mose2(filename, background, area_thresh = 200, thickness_range 
     # plt.imshow(img_gray, cmap='gray')
 
     threshold_lo = [int(bk_color[0] * 0.25), int(bk_color[1] * 0.25), int(bk_color[2] * 0.15)]
-    threshold_hi = [int(bk_color[0] * 0.7), int(bk_color[1] * 0.8), int(bk_color[2] * 0.7)]
+    threshold_hi = [int(bk_color[0] * 0.9), int(bk_color[1] * 0.9), int(bk_color[2] * 0.7)]
 
     img_binary = cv2.inRange(img, np.array(threshold_lo), np.array(threshold_hi))
 
@@ -135,7 +135,7 @@ def layer_search_mose2(filename, background, area_thresh = 200, thickness_range 
         segments = find_segment_list(temp, area_thresh, variance_limit = np.array([5, 5, 5]))
         ret, contrast_list_local, thickness_list = careful_look(img_cnt_large_cut, segments, 
                                                                 local_bk_color, predictor, area_thresh, 
-                                                                thickness_range)
+                                                                thickness_range_list)
         # print(ret, thickness_list)
         if ret:
             isLayer = True

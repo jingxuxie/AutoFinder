@@ -9,7 +9,7 @@ sys.path.append("..")
 import os
 import json
 from shutil import copyfile
-from autofinder.find_layers.predict_bn import predict_bn
+from autofinder.find_layers.predict_bn import predict_thin_bn
 from autofinder.auxiliary_func import background_divide, get_background
 from autofinder.find_layers.find_layers_func import get_local_bk,\
 find_segment_list, careful_look, put_Text
@@ -23,7 +23,7 @@ def layer_search_thin_bn(filename, background, area_thresh = 3000, thickness_ran
     isLayer = False
     contrast_list = []
     flake_position_list = []
-    predictor = predict_bn
+    predictor = predict_thin_bn
 
     bk = background #cv2.imread('F:/Temp/gr/10x_new.png')
     height, width, _ = bk.shape

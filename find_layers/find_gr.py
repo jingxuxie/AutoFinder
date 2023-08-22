@@ -16,7 +16,7 @@ find_segment_list, careful_look, put_Text
 
 
 #%%
-def layer_search_gr(filename, background, area_thresh = 1000, thickness_range = [0, 8],
+def layer_search_gr(filename, background, area_thresh = 1000, thickness_range_list = [[0, 8]],
                     roi = [0, 1, 0, 1]):
     isLayer = False
     contrast_list = []
@@ -48,9 +48,9 @@ def layer_search_gr(filename, background, area_thresh = 1000, thickness_range = 
     bk_color = np.zeros(3, dtype = np.int32)
     for i in range(3):
         hist[i] = cv2.calcHist([img[:, :, i]], [0], None, [256], [0,255])
-        hist[i] = hist[i][70: 130]
+        hist[i] = hist[i][50: 130]
         index = np.argmax(hist[i])
-        bk_color[i] = index + 70
+        bk_color[i] = index + 50
         if hist[i][index] < 1e5:
             return False, [], [], []
 
@@ -127,7 +127,7 @@ def layer_search_gr(filename, background, area_thresh = 1000, thickness_range = 
         segments = find_segment_list(temp, area_thresh, variance_limit = np.array([5, 5, 5]))
         ret, contrast_list_local, thickness_list = careful_look(img_cnt_large_cut, segments, 
                                                                 local_bk_color, predictor, area_thresh, 
-                                                                thickness_range)
+                                                                thickness_range_list)
         # print(ret, thickness_list)
         if ret:
             isLayer = True
@@ -142,9 +142,9 @@ def layer_search_gr(filename, background, area_thresh = 1000, thickness_range = 
 
 #%%
 def test_run(backgournd):
-    filepath = 'F:/Temp/gr_new/0814/color_shift_0/'
+    filepath = 'D:/JX_AutoFinder/2023-08/17/4/color_shift_1/'
     _, file_list, _ = generate_positions(filepath)
-    resultpath = 'F:/Temp/gr_new/0814/results_0/'
+    resultpath = 'D:/JX_AutoFinder/2023-08/17/4/results_1/'
     contrast_json = {'items': []}
     if not os.path.isdir(resultpath):
         os.makedirs(resultpath)
@@ -186,13 +186,13 @@ def test_run(backgournd):
 
 #%%
 if __name__ == '__main__':
-    bk = get_background('F:/Temp/gr_new/0814/color_shift_0', 1500, 1500)
+    bk = get_background('D:/JX_AutoFinder/2023-08/17/4/color_shift_1', 1500, 1500)
     bk = cv2.resize(bk, (3000, 3000))
     # bk = cv2.imread('F:/Temp/gr_new/color_shift/bk.png')
     test_run(bk)
 
 
-# %%
+    # %%
 filepath = 'F:/Temp/gr/6-28-1/small_0'
 
 

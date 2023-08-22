@@ -10,7 +10,7 @@ def calculate_contrast(sample_color, bk_color, predictor):
     color: np.array in the order of blue, green, red (BGR)
     '''
     contrast = (bk_color - sample_color) / bk_color
-    ret, thickness, _ = predictor(contrast)
+    ret, thickness, _ = predictor(contrast, bk_color)
     return ret, thickness, list(contrast)
 
 
@@ -80,7 +80,7 @@ def find_segment_list(X, area_thresh = 200, variance_limit = np.array([6, 6, 6])
 
 
 def careful_look(data, segments, local_bk_color, predictor, area_thresh = 400, 
-                 thickness_range = [0, 50]):
+                 thickness_range_list = [[0, 50]]):
     real_flake_list = []
     thickness_list = []
     for seg in segments:
@@ -114,7 +114,11 @@ def careful_look(data, segments, local_bk_color, predictor, area_thresh = 400,
                 #     continue
                 mean = np.mean(piece, axis = 0)
                 ret, thickness, contrast = calculate_contrast(mean, local_bk_color, predictor)
-                if not thickness_range[0] <= thickness <= thickness_range[1]:
+                count = 0
+                for thickness_range in thickness_range_list:
+                    if not thickness_range[0] <= thickness <= thickness_range[1]:
+                        count += 1
+                if count == len(thickness_range_list):
                     continue
                 if ret:
                     real_flake_list.append(contrast)

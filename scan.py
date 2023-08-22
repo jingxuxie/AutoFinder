@@ -13,13 +13,14 @@ import os
 from datetime import datetime
 from autofinder.lights.RGB_LED import RGBW_LED
 from autofinder.auxiliary_func import generate_grid_points
+
 #%%
 class Scanner():
-    def __init__(self, camera, stage, plane_para = [0,0,1,0], magnification = '5x'):
+    def __init__(self, camera, stage, light = None, plane_para = [0,0,1,0], magnification = '5x'):
         self.autofocus = AutoFocus(camera, stage)
         self.camera = self.autofocus.camera
         self.stage = self.autofocus.stage
-        self.light = RGBW_LED()
+        self.light = light
         self.plane_para = plane_para
         self.magnification = magnification
         self.rotate_90 = False
@@ -28,7 +29,7 @@ class Scanner():
         self.month = time.strftime('%m')
         self.day = time.strftime('%d')
         self.year = time.strftime('%Y')
-        self.parent_folder = 'D:/JX_AutoFinder/'+self.year+'-'+self.month+'/'+self.day
+        self.parent_folder = 'D:/0_JX_AutoFinder/' + self.year + '-' + self.month + '/' + self.day
         if not os.path.isdir(self.parent_folder):
             os.makedirs(self.parent_folder)
 
@@ -38,19 +39,8 @@ class Scanner():
             self.save_count_dir += 1
         self.parent_folder += '/' + str(self.save_count_dir)
         os.makedirs(self.parent_folder+ '/raw')
-        # os.makedirs(self.parent_folder+ '/temp')
-        # os.makedirs(self.parent_folder+ '/results')
         self.position_filename = self.parent_folder + '/raw/position.txt'
-        # self.save_folder += '/raw'
-
         
-        self.save_count = 1
-        
-        self.index = '00_00-00_00'
-
-        self.current_dir = os. getcwd().replace('\\', '/') + '/'
-        self.bk_filename = self.current_dir + 'support_file/background/crop_x5.png'
-
         self.pos = np.zeros(3)
 
 
@@ -68,7 +58,7 @@ class Scanner():
              coarse_focus_first_delay = 2.5, format = 'jpg', mode = 'move', 
              fast = False, initial_focus_param = [2000, 10], focus_param = [800, 2], 
              focus_roi = [0, 1, 0, 1], initial_focus = True, focus_speed = 1, 
-             RGB_color = True):
+             RGB_color = True, focus_thre = 20, delay_R = 0.1, delay_B = 0.15):
         '''
         position_list: list or array of [x, y, z] positions
         speed_list: list or array of [vx, vy, vz] speed
@@ -88,7 +78,11 @@ class Scanner():
         pos_num = len(position_list)
         if not speed_list:
             speed_list = [[1, 1, 1] for i in range(pos_num)]
-
+        
+        self.light.off_all()
+        initial_height = self.stage.get_z()
+        self.autofocus.height = 0
+        self.height = 0
         for i in range(pos_num):
             pos = position_list[i]
             speed = speed_list[i]
@@ -101,10 +95,14 @@ class Scanner():
                     self.stage.move_xyz(*pos[:2], 0, *speed)
             elif mode == 'goto':
                 if i == 0:
-                    self.stage.goto_xyz(*pos[:2], 0, *speed)
+                    self.stage.goto_xyz(*pos[:2], None, *speed)
                 else:
                     self.stage.move_B_to_G() if RGB_color else None
-                    self.stage.goto_xyz(*pos[:2], 0, *speed)
+                    if len(pos) == 2:
+                        self.stage.goto_xyz(*pos[:2], None, *speed)
+                    elif len(pos) == 3:
+                        self.stage.goto_xyz(*pos, *speed)
+                        initial_height = pos[2]
                 
             time.sleep(delay)
             self.save_img_RGB('B') if i > 0 else time.sleep(0.1)
@@ -120,21 +118,22 @@ class Scanner():
 
                 _, self.img = self.autofocus.focus(*focus_param, fast = fast, 
                                                    first_delay = focus_first_delay, delay = focus_delay, 
-                                                   roi = focus_roi, speed = focus_speed)
+                                                   roi = focus_roi, speed = focus_speed, skip_thre = focus_thre)
                 self.img = self.img[1060:4060, 1060:4060]
-                self.capture_RGB()
+                self.height = initial_height + self.autofocus.height
+                self.capture_RGB(delay_R, delay_B)
             else:
                 self.capture()
             
             if mode == 'move':
-                self.pos += np.array(pos)
+                self.pos += np.array(list(pos[:2]) + [self.height])
             elif mode == 'goto':
-                self.pos = np.array(pos)
+                self.pos = np.array(list(pos[:2]) + [self.height])
 
         time.sleep(0.15)
         self.save_img_RGB('G')
         self.stage.move_B_to_G() if RGB_color else None
-        self.light.only_G()
+        self.light.off_all()
          
 
     def capture(self):
@@ -153,20 +152,20 @@ class Scanner():
             file.write(filename + ' ' + ' '.join(map(str, self.pos)) + '\n')
 
 
-    def capture_RGB(self):
+    def capture_RGB(self, delay_R, delay_B):
         self.light.only_R()
         self.stage.move_G_to_R()
         self.save_img_RGB('G')
-        time.sleep(0.1)
+        time.sleep(delay_R)
         self.img = self.camera.last_frame[1060:4060, 1060:4060]
 
         self.light.only_B()
         self.stage.move_R_to_B()
         self.save_img_RGB('R')
-        time.sleep(0.15)
+        time.sleep(delay_B)
         self.img = self.camera.last_frame[1060:4060, 1060:4060]
 
-
+    
     def save_img_RGB(self, color):
         if self.compress:
             width = int(self.img.shape[1] / self.compress)
@@ -195,11 +194,12 @@ class Scanner():
 if __name__ == '__main__':
     camera = VieworksCamera()
     stage = Stage_MCX_E1000()
-    temp = Scanner(camera, stage)
+    light = RGBW_LED()
+    temp = Scanner(camera, stage, light)
     temp.initialize()
 
     position_list = generate_grid_points(1200, 1200, 16, 16)
-    position_list = generate_grid_points(2400, 2400, 10, 10)
+    position_list = generate_grid_points(2400, 2400, 31, 21)
 
 #%%
     temp.scan(position_list, subfolder = 'large', compress = 8, 
@@ -231,3 +231,11 @@ if __name__ == '__main__':
     # temp.scan(position)
     # temp.stage.close()
 # %%
+    from autofinder.auxiliary_func import generate_revisit_list
+    input_folder = 'D:/JX_AutoFinder/2023-08/16/10/color_shift_0'
+    output_folder = 'D:/JX_AutoFinder/2023-08/16/10/results_0'
+    pos, _ = generate_revisit_list(input_folder, output_folder)
+    temp.stage.set_RGB_params('50x')
+    temp.scan(pos, focus = True, delay = 0.07, format = 'png', subfolder='50x',
+              focus_param = [200, 10], focus_roi = [0.2, 0.8, 0.2, 0.8], focus_delay=0.18, 
+              focus_first_delay = 0.05,initial_focus=False, mode = 'goto', focus_thre=1)

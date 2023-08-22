@@ -51,15 +51,15 @@ def layer_search_wse2(filename, background, area_thresh = 200, thickness_range =
     bk_color = np.zeros(3, dtype = np.int32)
     for i in range(3):
         hist[i] = cv2.calcHist([img[:, :, i]], [0], None, [256], [0,255]).squeeze()
-        hist[i] = hist[i][65: 130]
+        hist[i] = hist[i][50: 130]
         index = np.argmax(hist[i])
         # bk_color[i] = index + 70
         if hist[i][index] < 1e5:
             return False, [], [], []
     index = get_real_bk_color(hist)
-    bk_color = index + 65
+    bk_color = index + 50
 
-    print(bk_color)
+    # print(bk_color)
     
 
     # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)

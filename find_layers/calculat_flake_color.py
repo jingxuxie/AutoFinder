@@ -54,13 +54,13 @@ plt.xlabel('Wavelength (nm)')
 plt.ylabel('Fraction of power reflected')
 
 #%%
-thicknesslist = np.linspace(0, 5, 151)
-lambda_list = [633, 537, 452]
-color_list = ['r', 'g', 'b']
+thicknesslist = np.linspace(0, 5, 501)
+lambda_list = [452, 537, 633]
+color_list = ['b', 'g', 'r']
 plt.figure()
 for i in range(len(lambda_list[:3])):
     lambda_vac = lambda_list[i]
-    n_list = [1,  nk_fn_mose2(lambda_vac), nk_fn_sio2(lambda_vac), nk_fn_si(lambda_vac)]
+    n_list = [1, nk_fn_mose2(lambda_vac), nk_fn_sio2(lambda_vac), nk_fn_si(lambda_vac)]
     R_list = []
     for thickness in thicknesslist:
         d_list = [inf, thickness, 90, inf] #in nm
